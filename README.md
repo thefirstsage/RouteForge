@@ -13,8 +13,7 @@ RouteForge is a simple tool for local service businesses to:
 
 ## 🚀 Download (Windows)
 
-👉 Download here: https://github.com/thefirstsage/RouteForge/releases/tag/v0.1.2
-
+👉 Download here: https://github.com/thefirstsage/RouteForge/releases/tag/v0.1.3
 > ⚠️ Windows may show a SmartScreen warning (normal for new apps).
 > Click “More Info” → “Run anyway”.
 
