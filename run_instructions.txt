@@ -1,0 +1,20 @@
+Route2Revenue
+
+Run the app:
+
+dist\Route2Revenue\Route2Revenue.exe
+
+Or use:
+
+Open Route2Revenue.cmd
+
+Daily workflow:
+1. Enter a city.
+2. Find businesses.
+3. Build My Day.
+4. Start the driving route, print the door-knocking sheet, or print the call list.
+5. Mark outcomes and set follow-up dates.
+6. Save progress so you can reopen the list later.
+
+Saved data:
+%LOCALAPPDATA%\Route2Revenue
