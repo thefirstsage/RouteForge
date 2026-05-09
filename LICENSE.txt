@@ -1,0 +1,15 @@
+﻿Copyright (c) 2026 RouteForge
+
+All rights reserved.
+
+This software is provided for testing, personal use, and business evaluation only.
+
+You may not:
+- Copy, modify, or redistribute this software
+- Reverse engineer this software
+- Resell or sublicense this software
+- Share this software publicly without permission
+
+This software is licensed, not sold.
+
+Unauthorized use or distribution is prohibited.
