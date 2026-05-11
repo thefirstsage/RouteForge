@@ -8,7 +8,7 @@ Architecture:
 mobile app -> RouteForge API -> OpenStreetMap / Overpass -> normalized BusinessStop results
 ```
 
-No paid API keys are used.
+No paid API keys are used for business search.
 
 ## Run Locally
 
@@ -78,6 +78,29 @@ It returns the Overpass endpoint used, raw element count, normalized result coun
 - Missing phone numbers return an empty string.
 - The backend never generates fake phone numbers.
 - The mobile app falls back to clearly labeled demo data if this API is unavailable.
+
+## Feedback Email
+
+The mobile app has a floating feedback button that posts to:
+
+```http
+POST /feedback
+```
+
+The backend sends feedback email through Resend when these Render environment variables are set:
+
+```text
+RESEND_API_KEY=your_resend_api_key
+FEEDBACK_TO_EMAIL=your@email.com
+FEEDBACK_FROM_EMAIL=RouteForge <verified@yourdomain.com>
+```
+
+Notes:
+
+- Do not put email API keys in the mobile app.
+- Keep `RESEND_API_KEY` only on Render or your backend host.
+- `FEEDBACK_FROM_EMAIL` must be a sender Resend allows.
+- If email is not configured, `/feedback` returns a clear setup error instead of pretending the message was emailed.
 
 ## Hosted Tester Builds
 
