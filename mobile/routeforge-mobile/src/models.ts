@@ -29,6 +29,8 @@ export type BusinessStop = {
   source: "mock" | "manual" | "backend" | "overpass" | "osm_overpass";
   hidden: boolean;
   bestStop?: boolean;
+  stopScore?: number;
+  stopTier?: "Best Stop" | "Good Stop" | "Standard";
   website?: string;
 };
 
@@ -69,4 +71,15 @@ export type AppSettings = {
 
 export type BusinessProvider = {
   findBusinesses(request: FindBusinessesRequest): Promise<BusinessStop[]>;
+};
+
+export type BusinessSearchDebug = {
+  backendBaseUrl: string;
+  requestUrl: string;
+  city: string;
+  state: string;
+  businessTypesSent: string[];
+  httpStatus?: number;
+  mode: "Real data" | "Demo data" | "Pending" | "Failed";
+  errorMessage?: string;
 };
