@@ -80,7 +80,15 @@ export const BUSINESS_TYPES = [
 export const BUSINESS_TYPE_PRESETS = [
   {
     name: "Best storefront route",
-    types: ["Strip malls / plazas", "Storefronts", "Retail stores", "Salons / barbers", "Phone stores"]
+    types: [
+      "Restaurants",
+      "Fast food",
+      "Cafes / bakeries",
+      "Retail stores",
+      "Salons / barbers",
+      "Pharmacies",
+      "Banks / credit unions"
+    ]
   },
   {
     name: "Food + retail",
@@ -92,7 +100,7 @@ export const BUSINESS_TYPE_PRESETS = [
   },
   {
     name: "Exterior cleaning targets",
-    types: ["Storefronts", "Gas stations", "Car washes", "Auto shops", "Banks / credit unions"]
+    types: ["Gas stations", "Car washes", "Restaurants", "Retail stores", "Property managers"]
   }
 ];
 
