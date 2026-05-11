@@ -77,7 +77,9 @@ function makeStop(index: number, city: string, state: string, businessTypes: str
     history: [],
     source: "mock",
     hidden: false,
-    bestStop
+    bestStop,
+    stopScore: bestStop ? 8 : 4,
+    stopTier: bestStop ? "Best Stop" : "Good Stop"
   };
 }
 
