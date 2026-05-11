@@ -15,6 +15,10 @@ const REQUEST_TIMEOUT_MS = 30000;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
 const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+const FEEDBACK_MAX_BYTES = 24 * 1024;
+const FEEDBACK_TO_EMAIL = process.env.FEEDBACK_TO_EMAIL || "";
+const FEEDBACK_FROM_EMAIL = process.env.FEEDBACK_FROM_EMAIL || "RouteForge <onboarding@resend.dev>";
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 
 const cache = new Map();
 const rateLimitBuckets = new Map();
@@ -103,10 +107,49 @@ function sendJson(response, status, payload) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type"
   });
   response.end(JSON.stringify(payload));
+}
+
+function readJsonBody(request, maxBytes = FEEDBACK_MAX_BYTES) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      body += chunk;
+      if (Buffer.byteLength(body, "utf8") > maxBytes) {
+        reject(new Error("Request body is too large."));
+        request.destroy();
+      }
+    });
+    request.on("end", () => {
+      if (!body.trim()) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new Error("Invalid JSON body."));
+      }
+    });
+    request.on("error", reject);
+  });
+}
+
+function sanitizeText(value, maxLength = 2000) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function parseBusinessTypes(searchParams) {
@@ -389,31 +432,6 @@ async function fetchOverpassBusinesses(params) {
   };
 }
 
-/*
-async function oldFetchOverpassBusinesses(params) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-      body: new URLSearchParams({ data: buildOverpassQuery(params) }).toString(),
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`Overpass returned ${response.status}`);
-    }
-    const data = await response.json();
-    const businesses = (data.elements || [])
-      .map((element) => normalizeElement(element, params.city, params.state))
-      .filter(Boolean);
-    return dedupeBusinesses(businesses).slice(0, params.limit);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-*/
-
 async function handleBusinesses(response, url) {
   const city = (url.searchParams.get("city") || "").trim();
   const state = (url.searchParams.get("state") || "").trim();
@@ -478,6 +496,87 @@ async function handleDebugBusinessesTest(response) {
   }
 }
 
+async function sendFeedbackEmail(feedback) {
+  if (!RESEND_API_KEY || !FEEDBACK_TO_EMAIL) {
+    logStep("Feedback received without email provider configured", {
+      type: feedback.type,
+      name: feedback.name,
+      email: feedback.email,
+      messagePreview: feedback.message.slice(0, 160)
+    });
+    return { sent: false, configured: false };
+  }
+
+  const subject = `RouteForge feedback: ${feedback.type}`;
+  const html = `
+    <h2>RouteForge Feedback</h2>
+    <p><strong>Type:</strong> ${escapeHtml(feedback.type)}</p>
+    <p><strong>Name:</strong> ${escapeHtml(feedback.name || "Not provided")}</p>
+    <p><strong>Email:</strong> ${escapeHtml(feedback.email || "Not provided")}</p>
+    <p><strong>Screen:</strong> ${escapeHtml(feedback.screen || "Unknown")}</p>
+    <p><strong>Route:</strong> ${escapeHtml(feedback.routeName || "None")}</p>
+    <p><strong>App:</strong> ${escapeHtml(feedback.appVersion || "RouteForge Mobile")}</p>
+    <hr />
+    <p style="white-space: pre-wrap;">${escapeHtml(feedback.message)}</p>
+  `;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: FEEDBACK_FROM_EMAIL,
+      to: [FEEDBACK_TO_EMAIL],
+      subject,
+      html,
+      reply_to: feedback.email || undefined
+    })
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Feedback email provider returned ${response.status}: ${text.slice(0, 300)}`);
+  }
+  return { sent: true, configured: true };
+}
+
+async function handleFeedback(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const feedback = {
+      type: sanitizeText(body.type || "Feedback", 80),
+      name: sanitizeText(body.name, 120),
+      email: sanitizeText(body.email, 160),
+      message: sanitizeText(body.message, 4000),
+      screen: sanitizeText(body.screen, 80),
+      routeName: sanitizeText(body.routeName, 160),
+      appVersion: sanitizeText(body.appVersion || "RouteForge Mobile", 80)
+    };
+
+    if (!feedback.message || feedback.message.length < 4) {
+      sendJson(response, 400, { error: "Please enter a little more detail before sending." });
+      return;
+    }
+
+    const emailResult = await sendFeedbackEmail(feedback);
+    if (!emailResult.configured) {
+      sendJson(response, 503, {
+        error: "Feedback email is not configured on this server."
+      });
+      return;
+    }
+    sendJson(response, 200, { ok: true, message: "Feedback sent." });
+  } catch (error) {
+    console.error("Feedback submission failed", error);
+    sendJson(response, 500, {
+      error: "Could not send feedback right now. Please try again.",
+      ...(IS_DEVELOPMENT ? { debug: errorMessage(error) } : {})
+    });
+  }
+}
+
 createServer((request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
   if (request.method === "OPTIONS") {
@@ -498,6 +597,14 @@ createServer((request, response) => {
       return;
     }
     void handleBusinesses(response, url);
+    return;
+  }
+  if (request.method === "POST" && url.pathname === "/feedback") {
+    if (isRateLimited(request)) {
+      sendJson(response, 429, { error: "Too many requests. Please wait a minute and try again." });
+      return;
+    }
+    void handleFeedback(request, response);
     return;
   }
   sendJson(response, 404, { error: "Not found." });
