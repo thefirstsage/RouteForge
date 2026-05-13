@@ -57,3 +57,7 @@ Saved progress, routes, presets, and config are stored under:
 ```
 
 If an older app data folder exists under the previous product name, Route2Revenue copies saved leads, routes, presets, and config into the new folder without deleting the old data.
+
+## Legal
+
+- Privacy Policy: [docs/privacy-policy.md](docs/privacy-policy.md)
